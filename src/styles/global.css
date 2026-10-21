@@ -528,3 +528,104 @@ img, video {
     min-height: 100vh;
   }
 }
+
+
+/* —— Profile —— */
+.profile-page { padding-bottom: 24px; }
+.profile-card {
+  padding: 20px 16px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+.profile-top {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.profile-stats-row {
+  display: flex;
+  flex: 1;
+  justify-content: space-around;
+}
+.profile-stats-row .stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.profile-stats-row .stat strong {
+  font-size: 17px;
+  font-weight: 700;
+}
+.profile-stats-row .stat span {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.profile-info {
+  margin-top: 14px;
+  text-align: left;
+}
+.profile-info h2 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+}
+.profile-info .bio {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--color-text);
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+.profile-edit-btn { margin-top: 12px; width: 100%; }
+.profile-edit { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.profile-edit-actions { display: flex; gap: 8px; }
+.profile-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+}
+.profile-tabs button {
+  flex: 1;
+  padding: 12px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  border-bottom: 2px solid transparent;
+  background: none;
+}
+.profile-tabs button.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+.profile-grid .grid-cell {
+  position: relative;
+  aspect-ratio: 1;
+  background: #111;
+  overflow: hidden;
+}
+.profile-grid .grid-cell img,
+.profile-grid .grid-cell video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.grid-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  color: #fff;
+  font-size: 11px;
+  text-shadow: 0 1px 2px rgba(0,0,0,.8);
+}
+.text-btn {
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  padding: 4px 8px;
+}
