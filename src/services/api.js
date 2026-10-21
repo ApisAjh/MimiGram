@@ -1,22 +1,46 @@
-/**
- * API client - all requests include credentials for session cookie
- */
-
 const BASE = '/api';
 
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-    ...options,
-  });
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+      ...options,
+    });
+  } catch {
+    const err = new Error('Network error — periksa koneksi');
+    err.status = 0;
+    throw err;
+  }
 
-  const data = await res.json().catch(() => ({}));
+  const text = await res.text();
+  let data = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = {};
+    }
+  }
+
   if (!res.ok) {
-    const err = new Error(data.error || res.statusText);
+    let message = data.error || data.message;
+    if (!message) {
+      if (res.status === 404) {
+        message = 'API tidak ditemukan (404). Redeploy versi terbaru ke Vercel.';
+      } else if (res.status === 401) {
+        message = 'Unauthorized';
+      } else if (res.status === 500) {
+        message = 'Server error — cek environment variables di Vercel';
+      } else {
+        message = res.statusText || `HTTP ${res.status}`;
+      }
+    }
+    const err = new Error(message);
     err.status = res.status;
     err.data = data;
     throw err;
@@ -25,45 +49,51 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-  // Auth
   authTelegram: (initData) =>
     request('/auth/telegram', { method: 'POST', body: JSON.stringify({ initData }) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/auth/me'),
 
-  // Posts
   getPosts: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return request(`/posts${q ? `?${q}` : ''}`);
   },
   createPost: (body) => request('/posts', { method: 'POST', body: JSON.stringify(body) }),
-  deletePost: (id) => request(`/posts/${id}`, { method: 'DELETE' }),
-  getPost: (id) => request(`/posts/${id}`),
-  toggleLike: (id) => request(`/posts/${id}/like`, { method: 'POST' }),
-  toggleBookmark: (id) => request(`/posts/${id}/bookmark`, { method: 'POST' }),
-  getComments: (id) => request(`/posts/${id}/comments`),
-  addComment: (id, content) =>
-    request(`/posts/${id}/comments`, { method: 'POST', body: JSON.stringify({ content }) }),
-  deleteComment: (id, commentId) =>
-    request(`/posts/${id}/comments?comment_id=${commentId}`, { method: 'DELETE' }),
-  getUploadUrl: (body) =>
-    request('/posts/upload-url', { method: 'POST', body: JSON.stringify(body) }),
 
-  // Reels
+  toggleLike: (postId) =>
+    request('/like', { method: 'POST', body: JSON.stringify({ post_id: postId }) }),
+  toggleBookmark: (postId) =>
+    request('/bookmark', { method: 'POST', body: JSON.stringify({ post_id: postId }) }),
+
+  getComments: (postId) => request(`/comments?post_id=${encodeURIComponent(postId)}`),
+  addComment: (postId, content) =>
+    request('/comments', {
+      method: 'POST',
+      body: JSON.stringify({ post_id: postId, content }),
+    }),
+  deleteComment: (postId, commentId) =>
+    request(`/comments?comment_id=${encodeURIComponent(commentId)}`, { method: 'DELETE' }),
+
+  getUploadUrl: (body) =>
+    request('/upload-url', { method: 'POST', body: JSON.stringify(body) }),
+
   getReels: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return request(`/reels${q ? `?${q}` : ''}`);
   },
 
-  // Users
-  getUser: (id) => request(`/users/${id}`),
+  getUser: (id) => request(`/user?id=${encodeURIComponent(id)}`),
   updateUser: (id, body) =>
-    request(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
-  toggleFollow: (id) => request(`/users/${id}/follow`, { method: 'POST' }),
-  searchUsers: (q) => request(`/users/search?q=${encodeURIComponent(q)}`),
+    request(`/user?id=${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  toggleFollow: (id) =>
+    request(`/user?id=${encodeURIComponent(id)}&action=follow`, { method: 'POST' }),
+  searchUsers: (q) =>
+    request(`/user?action=search&q=${encodeURIComponent(q)}`),
 
-  // Notifications
   getNotifications: () => request('/notifications'),
   markNotificationsRead: (body) =>
-    request('/notifications', { method: 'POST', body: JSON.stringify(body) }),
+    request('/notifications', { method: 'POST', body: JSON.stringify(body || {}) }),
 };
