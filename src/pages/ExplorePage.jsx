@@ -13,11 +13,23 @@ export default function ExplorePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.getPosts({
-        type: tab === 'reels' ? 'reel' : 'post',
-        limit: 30,
-      });
-      setPosts(data.posts || []);
+      // posts: semua post_type=post (foto+video); reels: video saja dari API type
+      const params = { limit: 30 };
+      if (tab === 'reels') params.type = 'reel';
+      else params.type = 'post';
+      const data = await api.getPosts(params);
+      let list = data.posts || [];
+      // Sertakan video di tab postingan; di tab reels tampilkan video/reel
+      if (tab === 'reels') {
+        // fallback: jika belum ada post_type reel, ambil juga dari reels endpoint
+        try {
+          const r = await api.getReels({ limit: 30 });
+          const reels = r.reels || [];
+          const ids = new Set(list.map((x) => x.id));
+          reels.forEach((x) => { if (!ids.has(x.id)) list.push(x); });
+        } catch { /* ignore */ }
+      }
+      setPosts(list);
     } catch (err) {
       console.error(err);
     } finally {

@@ -19,7 +19,7 @@ export default function ProfilePage() {
       try {
         const [me, postsData] = await Promise.all([
           api.me(),
-          api.getPosts({ user_id: user.id, limit: 30 }),
+          api.getPosts({ user_id: user.id, limit: 50 }),
         ]);
         setProfile(me.user);
         setDisplayName(me.user.display_name || '');
@@ -44,9 +44,11 @@ export default function ProfilePage() {
     }
   };
 
-  const filtered = posts.filter((p) =>
-    tab === 'posts' ? p.post_type === 'post' : p.post_type === 'reel'
-  );
+  // posts tab: all non-reel (photo + video posts); reels tab: reels OR any video
+  const filtered =
+    tab === 'posts'
+      ? posts.filter((p) => p.post_type !== 'reel')
+      : posts.filter((p) => p.post_type === 'reel' || p.media_type === 'video');
 
   if (loading) {
     return (
@@ -59,30 +61,49 @@ export default function ProfilePage() {
   return (
     <>
       <header className="app-header">
-        <h1 style={{ fontSize: 18 }}>{profile?.username || 'Profil'}</h1>
-        <button onClick={logout} style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+        <h1 style={{ fontSize: 17, fontWeight: 700 }}>
+          {profile?.username ? `@${profile.username}` : 'Profil'}
+        </h1>
+        <button type="button" className="text-btn" onClick={logout}>
           Keluar
         </button>
       </header>
-      <main className="app-content">
-        <div className="profile-header">
-          <img
-            className="avatar avatar-lg"
-            src={
-              profile?.avatar_url ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.display_name || 'U')}&background=FF4D6D&color=fff&size=128`
-            }
-            alt=""
-          />
+
+      <main className="app-content profile-page">
+        <section className="profile-card">
+          <div className="profile-top">
+            <img
+              className="avatar avatar-lg"
+              src={
+                profile?.avatar_url ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.display_name || 'U')}&background=FF4D6D&color=fff&size=128`
+              }
+              alt=""
+            />
+            <div className="profile-stats-row">
+              <div className="stat">
+                <strong>{profile?.posts_count ?? posts.length}</strong>
+                <span>Postingan</span>
+              </div>
+              <div className="stat">
+                <strong>{profile?.followers_count ?? 0}</strong>
+                <span>Followers</span>
+              </div>
+              <div className="stat">
+                <strong>{profile?.following_count ?? 0}</strong>
+                <span>Following</span>
+              </div>
+            </div>
+          </div>
+
           {editing ? (
-            <div style={{ marginTop: 16, textAlign: 'left' }}>
+            <div className="profile-edit">
               <input
                 className="input"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Nama tampilan"
                 maxLength={50}
-                style={{ marginBottom: 8 }}
               />
               <textarea
                 className="input textarea"
@@ -90,77 +111,49 @@ export default function ProfilePage() {
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="Bio"
                 maxLength={150}
+                rows={3}
               />
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                <button className="btn btn-primary btn-sm" onClick={saveProfile}>
+              <div className="profile-edit-actions">
+                <button type="button" className="btn btn-primary btn-sm" onClick={saveProfile}>
                   Simpan
                 </button>
-                <button className="btn btn-outline btn-sm" onClick={() => setEditing(false)}>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditing(false)}>
                   Batal
                 </button>
               </div>
             </div>
           ) : (
-            <>
-              <h2 style={{ marginTop: 12, fontSize: 18 }}>{profile?.display_name}</h2>
-              {profile?.bio && (
-                <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, marginTop: 4 }}>
-                  {profile.bio}
-                </p>
-              )}
-              <button className="btn btn-outline btn-sm" style={{ marginTop: 12 }} onClick={() => setEditing(true)}>
+            <div className="profile-info">
+              <h2>{profile?.display_name || 'Pengguna'}</h2>
+              {profile?.bio ? <p className="bio">{profile.bio}</p> : null}
+              <button type="button" className="btn btn-outline btn-sm profile-edit-btn" onClick={() => setEditing(true)}>
                 Edit profil
               </button>
-            </>
+            </div>
           )}
+        </section>
 
-          <div className="profile-stats">
-            <div className="stat">
-              <strong>{profile?.posts_count ?? 0}</strong>
-              <span>Postingan</span>
-            </div>
-            <div className="stat">
-              <strong>{profile?.followers_count ?? 0}</strong>
-              <span>Followers</span>
-            </div>
-            <div className="stat">
-              <strong>{profile?.following_count ?? 0}</strong>
-              <span>Following</span>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)' }}>
+        <div className="profile-tabs">
           <button
-            style={{
-              flex: 1,
-              padding: 12,
-              fontWeight: 600,
-              borderBottom: tab === 'posts' ? '2px solid var(--color-primary)' : 'none',
-              color: tab === 'posts' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-            }}
+            type="button"
+            className={tab === 'posts' ? 'active' : ''}
             onClick={() => setTab('posts')}
           >
             Postingan
           </button>
           <button
-            style={{
-              flex: 1,
-              padding: 12,
-              fontWeight: 600,
-              borderBottom: tab === 'reels' ? '2px solid var(--color-primary)' : 'none',
-              color: tab === 'reels' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-            }}
+            type="button"
+            className={tab === 'reels' ? 'active' : ''}
             onClick={() => setTab('reels')}
           >
-            Reels
+            Video / Reels
           </button>
         </div>
 
         {filtered.length === 0 ? (
           <div className="empty-state">
             <h3>Belum ada konten</h3>
-            <p>Bagikan {tab === 'posts' ? 'postingan' : 'Reel'} pertama Anda.</p>
+            <p>Bagikan {tab === 'posts' ? 'postingan' : 'video'} pertama Anda.</p>
             <Link to="/create" className="btn btn-primary" style={{ marginTop: 12 }}>
               Buat
             </Link>
@@ -168,9 +161,12 @@ export default function ProfilePage() {
         ) : (
           <div className="profile-grid">
             {filtered.map((p) => (
-              <div key={p.id} style={{ position: 'relative' }}>
+              <div key={p.id} className="grid-cell">
                 {p.media_type === 'video' ? (
-                  <video src={p.media_url} muted playsInline preload="metadata" />
+                  <>
+                    <video src={p.media_url} muted playsInline preload="metadata" />
+                    <span className="grid-badge">▶</span>
+                  </>
                 ) : (
                   <img src={p.media_url} alt="" loading="lazy" />
                 )}

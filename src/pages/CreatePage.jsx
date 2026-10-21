@@ -84,31 +84,54 @@ export default function CreatePage() {
     setError(null);
 
     try {
-      // 1. Get signed URL
-      const { path, signedUrl, media_type } = await api.getUploadUrl({
-        filename: file.name,
-        contentType: file.type,
-        size: file.size,
-      });
+      // 1. Get signed URL from our API
+      let path, signedUrl, token, media_type;
+      try {
+        const up = await api.getUploadUrl({
+          filename: file.name,
+          contentType: file.type || 'application/octet-stream',
+          size: file.size,
+        });
+        path = up.path;
+        signedUrl = up.signedUrl;
+        token = up.token;
+        media_type = up.media_type;
+      } catch (e) {
+        throw new Error(e.message || 'Gagal meminta URL upload ke server');
+      }
 
-      // 2. Upload to Supabase Storage
+      if (!signedUrl || !path) {
+        throw new Error('Server tidak mengembalikan signed URL');
+      }
+
+      // 2. Upload file directly to Supabase Storage
       setProgress(20);
-      const uploadRes = await fetch(signedUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      });
+      let uploadRes;
+      try {
+        uploadRes = await fetch(signedUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': file.type || 'application/octet-stream',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: file,
+        });
+      } catch (netErr) {
+        console.error('Storage PUT failed:', netErr);
+        throw new Error(
+          'Gagal kirim file ke Storage (Failed to fetch). Cek policy bucket media + koneksi. Di Supabase SQL jalankan policy INSERT untuk storage.objects.'
+        );
+      }
       if (!uploadRes.ok) {
-        throw new Error('Upload gagal. Coba lagi.');
+        const t = await uploadRes.text().catch(() => '');
+        console.error('Storage status', uploadRes.status, t);
+        throw new Error(`Upload Storage gagal (${uploadRes.status}). Cek policy bucket media.`);
       }
       setProgress(70);
 
       // 3. Create post metadata
       const postType = type === 'reel' ? 'reel' : 'post';
       let duration_seconds = null;
-      if (media_type === 'video') {
-        // optional: could compute duration
-      }
 
       await api.createPost({
         caption: caption.trim(),
