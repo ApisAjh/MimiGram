@@ -1,43 +1,20 @@
-/**
- * GET /api/auth/me
- */
-
-import { getAuthUser } from '../lib/session.js';
-import { getServiceClient } from '../lib/supabase.js';
-import { json, error, handleOptions } from '../lib/http.js';
+import { getAuthUser } from '../../lib/session.js';
+import { getServiceClient } from '../../lib/supabase.js';
+import { json, error, handleOptions } from '../../lib/http.js';
 
 export default async function handler(req, res) {
-  if (req.method === 'OPTIONS') {
-    return handleOptions(req, res);
-  }
-
-  if (req.method !== 'GET') {
-    return error(res, 405, 'Method not allowed');
-  }
+  if (req.method === 'OPTIONS') return handleOptions(req, res);
+  if (req.method !== 'GET') return error(res, 405, 'Method not allowed');
 
   try {
     const user = await getAuthUser(req);
-    if (!user) {
-      return error(res, 401, 'Unauthorized');
-    }
+    if (!user) return error(res, 401, 'Unauthorized');
 
     const supabase = getServiceClient();
-
-    // Counts
     const [postsRes, followersRes, followingRes] = await Promise.all([
-      supabase
-        .from('posts')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('status', 'published'),
-      supabase
-        .from('follows')
-        .select('id', { count: 'exact', head: true })
-        .eq('following_id', user.id),
-      supabase
-        .from('follows')
-        .select('id', { count: 'exact', head: true })
-        .eq('follower_id', user.id),
+      supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'published'),
+      supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', user.id),
+      supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', user.id),
     ]);
 
     return json(res, 200, {
@@ -55,7 +32,7 @@ export default async function handler(req, res) {
       },
     });
   } catch (err) {
-    console.error('auth/me error:', err);
+    console.error('auth/me:', err);
     return error(res, 500, 'Internal server error');
   }
 }
