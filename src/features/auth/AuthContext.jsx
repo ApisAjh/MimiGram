@@ -3,6 +3,15 @@ import { api } from '../../services/api';
 
 const AuthContext = createContext(null);
 
+function isInsideTelegram() {
+  try {
+    const tg = window.Telegram?.WebApp;
+    return Boolean(tg && (tg.initData || tg.initDataUnsafe?.user));
+  } catch {
+    return false;
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -13,29 +22,45 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const tg = window.Telegram?.WebApp;
-      if (!tg || !tg.initData) {
+      if (!tg) {
         setNeedsTelegram(true);
+        setError(null);
         setLoading(false);
         return;
       }
 
-      tg.ready();
-      tg.expand();
-      // Apply theme if available
+      tg.ready?.();
+      tg.expand?.();
       if (tg.themeParams?.bg_color) {
         document.documentElement.style.setProperty('--tg-bg', tg.themeParams.bg_color);
       }
 
-      const data = await api.authTelegram(tg.initData);
+      const initData = tg.initData;
+      if (!initData) {
+        // Opened in Telegram shell but initData empty (e.g. opened as plain link inside TG)
+        setNeedsTelegram(true);
+        setError(
+          'initData kosong. Buka Mini App lewat tombol bot (Menu Button / web_app), bukan lewat link biasa.'
+        );
+        setLoading(false);
+        return;
+      }
+
+      const data = await api.authTelegram(initData);
+      if (!data?.user) {
+        setError('Response login tidak valid');
+        setLoading(false);
+        return;
+      }
       setUser(data.user);
       setNeedsTelegram(false);
+      setError(null);
     } catch (err) {
       console.error('Auth error:', err);
-      if (err.status === 401) {
+      setError(err.message || 'Gagal masuk');
+      // Keep needsTelegram true only when clearly outside Telegram
+      if (!isInsideTelegram()) {
         setNeedsTelegram(true);
-        setError(err.message);
-      } else {
-        setError(err.message || 'Gagal masuk');
       }
     } finally {
       setLoading(false);
@@ -63,18 +88,23 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    // Try session first, then Telegram initData
     (async () => {
+      // 1) Existing session cookie
       try {
         const data = await api.me();
-        setUser(data.user);
-        setLoading(false);
-        // Still expand Telegram if present
-        window.Telegram?.WebApp?.ready?.();
-        window.Telegram?.WebApp?.expand?.();
+        if (data?.user) {
+          setUser(data.user);
+          setLoading(false);
+          window.Telegram?.WebApp?.ready?.();
+          window.Telegram?.WebApp?.expand?.();
+          return;
+        }
       } catch {
-        await loginWithTelegram();
+        // no session — continue
       }
+
+      // 2) Telegram initData login
+      await loginWithTelegram();
     })();
   }, [loginWithTelegram]);
 
