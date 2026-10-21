@@ -33,8 +33,8 @@ async function getPosts(req, res) {
     let query = supabase
       .from('posts')
       .select(`
-        id, caption, media_path, media_type, post_type, thumbnail_path, duration_seconds, created_at,
-        user:profiles!posts_user_id_fkey (id, username, display_name, avatar_url)
+        id, user_id, caption, media_path, media_type, post_type, thumbnail_path, duration_seconds, created_at,
+        profiles:user_id (id, username, display_name, avatar_url)
       `)
       .eq('status', 'published')
       .order('created_at', { ascending: false })
@@ -71,15 +71,19 @@ async function getPosts(req, res) {
     const likedSet = new Set((userLikesRes.data || []).map((l) => l.post_id));
     const bookmarkedSet = new Set((userBookmarksRes.data || []).map((b) => b.post_id));
 
-    const enriched = items.map((p) => ({
-      ...p,
-      likes_count: likeCounts[p.id] || 0,
-      comments_count: commentCounts[p.id] || 0,
-      liked_by_me: likedSet.has(p.id),
-      bookmarked_by_me: bookmarkedSet.has(p.id),
-      media_url: mediaUrl(p.media_path),
-      thumbnail_url: p.thumbnail_path ? mediaUrl(p.thumbnail_path) : null,
-    }));
+    const enriched = items.map((p) => {
+      const { profiles, ...rest } = p;
+      return {
+        ...rest,
+        user: profiles || null,
+        likes_count: likeCounts[p.id] || 0,
+        comments_count: commentCounts[p.id] || 0,
+        liked_by_me: likedSet.has(p.id),
+        bookmarked_by_me: bookmarkedSet.has(p.id),
+        media_url: mediaUrl(p.media_path),
+        thumbnail_url: p.thumbnail_path ? mediaUrl(p.thumbnail_path) : null,
+      };
+    });
 
     return json(res, 200, { posts: enriched, nextCursor }, req);
   } catch (err) {
@@ -127,8 +131,8 @@ async function createPost(req, res) {
         status: 'published',
       })
       .select(`
-        id, caption, media_path, media_type, post_type, thumbnail_path, duration_seconds, created_at,
-        user:profiles!posts_user_id_fkey (id, username, display_name, avatar_url)
+        id, user_id, caption, media_path, media_type, post_type, thumbnail_path, duration_seconds, created_at,
+        profiles:user_id (id, username, display_name, avatar_url)
       `)
       .single();
 
@@ -137,9 +141,11 @@ async function createPost(req, res) {
       return error(res, 500, 'Failed to create post', null, req);
     }
 
+    const { profiles, ...rest } = post;
     return json(res, 201, {
       post: {
-        ...post,
+        ...rest,
+        user: profiles || null,
         likes_count: 0,
         comments_count: 0,
         liked_by_me: false,

@@ -31,7 +31,7 @@ export default async function handler(req, res) {
         thumbnail_path,
         duration_seconds,
         created_at,
-        user:profiles!posts_user_id_fkey (
+        profiles:user_id (
           id,
           username,
           display_name,
@@ -39,7 +39,6 @@ export default async function handler(req, res) {
         )
       `)
       .eq('status', 'published')
-      .eq('post_type', 'reel')
       .eq('media_type', 'video')
       .order('created_at', { ascending: false })
       .limit(limit + 1);
@@ -86,17 +85,22 @@ export default async function handler(req, res) {
     const followingSet = new Set((followsRes.data || []).map((f) => f.following_id));
 
     const base = process.env.SUPABASE_URL;
-    const enriched = items.map((p) => ({
-      ...p,
-      likes_count: likeCounts[p.id] || 0,
-      comments_count: commentCounts[p.id] || 0,
-      liked_by_me: likedSet.has(p.id),
-      is_following: p.user ? followingSet.has(p.user.id) : false,
-      media_url: `${base}/storage/v1/object/public/media/${p.media_path}`,
-      thumbnail_url: p.thumbnail_path
-        ? `${base}/storage/v1/object/public/media/${p.thumbnail_path}`
-        : null,
-    }));
+    const enriched = items.map((p) => {
+      const { profiles, ...rest } = p;
+      const u = profiles || p.user || null;
+      return {
+        ...rest,
+        user: u,
+        likes_count: likeCounts[p.id] || 0,
+        comments_count: commentCounts[p.id] || 0,
+        liked_by_me: likedSet.has(p.id),
+        is_following: u ? followingSet.has(u.id) : false,
+        media_url: `${base}/storage/v1/object/public/media/${p.media_path}`,
+        thumbnail_url: p.thumbnail_path
+          ? `${base}/storage/v1/object/public/media/${p.thumbnail_path}`
+          : null,
+      };
+    });
 
     return json(res, 200, { reels: enriched, nextCursor });
   } catch (err) {
