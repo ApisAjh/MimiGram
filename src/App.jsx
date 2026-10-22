@@ -1,7 +1,8 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './features/auth/AuthContext';
 import BottomNav from './components/BottomNav';
 import GatePage from './pages/GatePage';
+import OnboardingPage from './pages/OnboardingPage';
 import HomePage from './pages/HomePage';
 import ExplorePage from './pages/ExplorePage';
 import ReelsPage from './pages/ReelsPage';
@@ -20,7 +21,8 @@ function LoadingScreen() {
 }
 
 export default function App() {
-  const { loading, needsTelegram, isAuthenticated } = useAuth();
+  const { loading, needsTelegram, isAuthenticated, needsOnboarding } = useAuth();
+  const location = useLocation();
 
   if (loading) return <LoadingScreen />;
 
@@ -28,9 +30,13 @@ export default function App() {
     return <GatePage />;
   }
 
+  if (needsOnboarding) {
+    return <OnboardingPage />;
+  }
+
   return (
     <div className="app-shell">
-      <Routes>
+      <Routes location={location} key={location.pathname}>
         <Route path="/" element={<HomePage />} />
         <Route path="/explore" element={<ExplorePage />} />
         <Route path="/reels" element={<ReelsPage />} />
