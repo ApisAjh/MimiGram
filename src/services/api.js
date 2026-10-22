@@ -59,6 +59,9 @@ export const api = {
     return request(`/posts${q ? `?${q}` : ''}`);
   },
   createPost: (body) => request('/posts', { method: 'POST', body: JSON.stringify(body) }),
+  deletePost: (id) => request(`/posts?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  updatePost: (id, body) =>
+    request(`/posts?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
 
   toggleLike: (postId) =>
     request('/like', { method: 'POST', body: JSON.stringify({ post_id: postId }) }),
