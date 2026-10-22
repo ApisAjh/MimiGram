@@ -40,10 +40,13 @@ export default async function handler(req, res) {
       return error(res, 500, `Upload URL gagal: ${msg}`, null, req);
     }
 
+    const base = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+    const publicUrl = base ? `${base}/storage/v1/object/public/media/${objectPath}` : null;
     return json(res, 200, {
       path: objectPath,
       signedUrl: data.signedUrl,
       token: data.token,
+      publicUrl,
       media_type: isImage ? 'image' : 'video',
     }, req);
   } catch (err) {
