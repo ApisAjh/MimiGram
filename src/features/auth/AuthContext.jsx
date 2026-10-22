@@ -12,11 +12,62 @@ function isInsideTelegram() {
   }
 }
 
+function applyTheme(theme) {
+  const t = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', t);
+  try {
+    localStorage.setItem('mg_theme', t);
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadTheme() {
+  try {
+    const t = localStorage.getItem('mg_theme');
+    if (t === 'dark' || t === 'light') {
+      document.documentElement.setAttribute('data-theme', t);
+      return t;
+    }
+  } catch {
+    /* ignore */
+  }
+  document.documentElement.setAttribute('data-theme', 'light');
+  return 'light';
+}
+
+function isOnboarded(userId) {
+  try {
+    return localStorage.getItem(`mg_onboard_${userId}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markOnboarded(userId) {
+  try {
+    localStorage.setItem(`mg_onboard_${userId}`, '1');
+  } catch {
+    /* ignore */
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [needsTelegram, setNeedsTelegram] = useState(false);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [theme, setThemeState] = useState('light');
+
+  useEffect(() => {
+    setThemeState(loadTheme());
+  }, []);
+
+  const setTheme = useCallback((t) => {
+    applyTheme(t);
+    setThemeState(t === 'dark' ? 'dark' : 'light');
+  }, []);
 
   const loginWithTelegram = useCallback(async () => {
     setError(null);
@@ -31,13 +82,9 @@ export function AuthProvider({ children }) {
 
       tg.ready?.();
       tg.expand?.();
-      if (tg.themeParams?.bg_color) {
-        document.documentElement.style.setProperty('--tg-bg', tg.themeParams.bg_color);
-      }
 
       const initData = tg.initData;
       if (!initData) {
-        // Opened in Telegram shell but initData empty (e.g. opened as plain link inside TG)
         setNeedsTelegram(true);
         setError(
           'initData kosong. Buka Mini App lewat tombol bot (Menu Button / web_app), bukan lewat link biasa.'
@@ -52,13 +99,15 @@ export function AuthProvider({ children }) {
         setLoading(false);
         return;
       }
+
       setUser(data.user);
       setNeedsTelegram(false);
       setError(null);
+      // Onboarding only if never completed for this user id
+      setNeedsOnboarding(!isOnboarded(data.user.id));
     } catch (err) {
       console.error('Auth error:', err);
       setError(err.message || 'Gagal masuk');
-      // Keep needsTelegram true only when clearly outside Telegram
       if (!isInsideTelegram()) {
         setNeedsTelegram(true);
       }
@@ -82,28 +131,57 @@ export function AuthProvider({ children }) {
     try {
       await api.logout();
     } catch {
-      // ignore
+      /* ignore */
     }
     setUser(null);
+    setNeedsOnboarding(false);
   }, []);
+
+  const completeOnboarding = useCallback(() => {
+    if (user?.id) markOnboarded(user.id);
+    setNeedsOnboarding(false);
+  }, [user?.id]);
 
   useEffect(() => {
     (async () => {
-      // 1) Existing session cookie
+      const tg = window.Telegram?.WebApp;
+      const initData = tg?.initData;
+      const tgId = tg?.initDataUnsafe?.user?.id;
+
+      // Always re-auth with Telegram when initData exists → ganti akun otomatis
+      if (initData) {
+        // If cookie session is different telegram user, overwrite via authTelegram
+        try {
+          const data = await api.me();
+          if (data?.user && tgId && String(data.user.telegram_id) !== String(tgId)) {
+            try {
+              await api.logout();
+            } catch {
+              /* ignore */
+            }
+          }
+        } catch {
+          /* no session */
+        }
+        await loginWithTelegram();
+        return;
+      }
+
+      // No initData: try existing cookie (dev / rare)
       try {
         const data = await api.me();
         if (data?.user) {
           setUser(data.user);
+          setNeedsOnboarding(!isOnboarded(data.user.id));
           setLoading(false);
-          window.Telegram?.WebApp?.ready?.();
-          window.Telegram?.WebApp?.expand?.();
+          tg?.ready?.();
+          tg?.expand?.();
           return;
         }
       } catch {
-        // no session — continue
+        /* no session */
       }
 
-      // 2) Telegram initData login
       await loginWithTelegram();
     })();
   }, [loginWithTelegram]);
@@ -116,6 +194,10 @@ export function AuthProvider({ children }) {
         loading,
         error,
         needsTelegram,
+        needsOnboarding,
+        completeOnboarding,
+        theme,
+        setTheme,
         loginWithTelegram,
         refreshUser,
         logout,
