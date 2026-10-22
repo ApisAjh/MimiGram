@@ -52,7 +52,7 @@ export const api = {
   authTelegram: (initData) =>
     request('/auth/telegram', { method: 'POST', body: JSON.stringify({ initData }) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
-  me: () => request('/auth/me'),
+  me: (opts = {}) => request(opts.full ? '/auth/me?full=1' : '/auth/me'),
 
   getPosts: (params = {}) => {
     const q = new URLSearchParams(params).toString();
