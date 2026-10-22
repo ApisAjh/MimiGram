@@ -78,6 +78,19 @@ export default function ReelsPage() {
   }, [activeIndex, reels.length, cursor, load]);
 
   const toggleLike = async (reel) => {
+    if (reel._likeBusy) return;
+    setReels((prev) =>
+      prev.map((r) => {
+        if (r.id !== reel.id) return r;
+        const next = !r.liked_by_me;
+        return {
+          ...r,
+          liked_by_me: next,
+          likes_count: Math.max(0, (r.likes_count || 0) + (next ? 1 : -1)),
+          _likeBusy: true,
+        };
+      })
+    );
     try {
       const res = await api.toggleLike(reel.id);
       setReels((prev) =>
@@ -85,14 +98,29 @@ export default function ReelsPage() {
           r.id === reel.id
             ? {
                 ...r,
-                liked_by_me: res.liked,
-                likes_count: r.likes_count + (res.liked ? 1 : -1),
+                liked_by_me: !!res.liked,
+                likes_count:
+                  typeof res.likes_count === 'number'
+                    ? res.likes_count
+                    : r.likes_count,
+                _likeBusy: false,
               }
             : r
         )
       );
     } catch {
-      // ignore
+      setReels((prev) =>
+        prev.map((r) =>
+          r.id === reel.id
+            ? {
+                ...r,
+                liked_by_me: !!reel.liked_by_me,
+                likes_count: reel.likes_count || 0,
+                _likeBusy: false,
+              }
+            : r
+        )
+      );
     }
   };
 

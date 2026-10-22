@@ -31,22 +31,32 @@ function BookmarkIcon({ filled }) {
 }
 
 function PostCard({ post, onUpdate }) {
-  const [liked, setLiked] = useState(post.liked_by_me);
-  const [likes, setLikes] = useState(post.likes_count);
-  const [bookmarked, setBookmarked] = useState(post.bookmarked_by_me);
+  const [liked, setLiked] = useState(!!post.liked_by_me);
+  const [likes, setLikes] = useState(post.likes_count || 0);
+  const [bookmarked, setBookmarked] = useState(!!post.bookmarked_by_me);
   const [showComments, setShowComments] = useState(false);
   const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
+  const [likeBusy, setLikeBusy] = useState(false);
 
   const toggleLike = async () => {
-    const prev = liked;
-    setLiked(!prev);
-    setLikes((c) => (prev ? c - 1 : c + 1));
+    if (likeBusy) return;
+    setLikeBusy(true);
+    const prevLiked = liked;
+    const prevLikes = likes;
+    const nextLiked = !prevLiked;
+    setLiked(nextLiked);
+    setLikes(Math.max(0, prevLikes + (nextLiked ? 1 : -1)));
     try {
       const res = await api.toggleLike(post.id);
-      setLiked(res.liked);
+      setLiked(!!res.liked);
+      if (typeof res.likes_count === 'number') {
+        setLikes(res.likes_count);
+      }
     } catch {
-      setLiked(prev);
-      setLikes((c) => (prev ? c + 1 : c - 1));
+      setLiked(prevLiked);
+      setLikes(prevLikes);
+    } finally {
+      setLikeBusy(false);
     }
   };
 
@@ -97,7 +107,14 @@ function PostCard({ post, onUpdate }) {
       )}
 
       <div className="post-actions">
-        <button className={liked ? 'liked' : ''} onClick={toggleLike} aria-label="Like">
+        <button
+          type="button"
+          className={liked ? 'liked' : ''}
+          onClick={toggleLike}
+          disabled={likeBusy}
+          aria-label="Like"
+          aria-pressed={liked}
+        >
           <HeartIcon filled={liked} />
           <span>{likes > 0 ? likes : ''}</span>
         </button>
