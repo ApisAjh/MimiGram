@@ -12,18 +12,14 @@ const avatarFor = (u) =>
 function timeShort(iso) {
   if (!iso) return '';
   try {
-    return formatDistanceToNowStrict(new Date(iso), { locale: localeId });
+    return formatDistanceToNowStrict(new Date(iso), { addSuffix: false, locale: localeId });
   } catch {
     return '';
   }
 }
 
 /**
- * Bottom sheet komentar (gaya Instagram).
- * props:
- *  - postId
- *  - onClose
- *  - onCountChange?: (delta: number) => void
+ * Bottom sheet komentar — layout Instagram normal.
  */
 export default function CommentsSheet({ postId, onClose, onCountChange }) {
   const { user } = useAuth();
@@ -52,12 +48,33 @@ export default function CommentsSheet({ postId, onClose, onCountChange }) {
     };
   }, [postId]);
 
-  // kunci scroll halaman di belakang sheet
   useEffect(() => {
+    // Kunci scroll + pause semua video di belakang sheet
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    const videos = document.querySelectorAll('video');
+    const states = [];
+    videos.forEach((v) => {
+      states.push({ el: v, paused: v.paused });
+      try {
+        v.pause();
+      } catch {
+        /* ignore */
+      }
+    });
+    const t = setTimeout(() => inputRef.current?.focus?.(), 300);
     return () => {
       document.body.style.overflow = prev;
+      clearTimeout(t);
+      states.forEach(({ el, paused }) => {
+        if (!paused) {
+          try {
+            el.play?.();
+          } catch {
+            /* ignore */
+          }
+        }
+      });
     };
   }, []);
 
@@ -83,6 +100,7 @@ export default function CommentsSheet({ postId, onClose, onCountChange }) {
   };
 
   const remove = async (c) => {
+    if (!confirm('Hapus komentar ini?')) return;
     const snapshot = comments;
     setComments((list) => list.filter((x) => x.id !== c.id));
     try {
@@ -97,42 +115,47 @@ export default function CommentsSheet({ postId, onClose, onCountChange }) {
 
   return createPortal(
     <div className="cs-backdrop" onClick={onClose} role="presentation">
-      <div
-        className="cs-sheet"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="Komentar"
-      >
-        <div className="cs-handle-wrap" onClick={onClose}>
+      <div className="cs-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Komentar">
+        <div className="cs-handle-wrap">
           <div className="cs-handle" />
         </div>
-        <div className="cs-title">Komentar</div>
+
+        <div className="cs-header">
+          <span className="cs-title">Komentar</span>
+          <button type="button" className="cs-close" onClick={onClose} aria-label="Tutup">
+            ✕
+          </button>
+        </div>
 
         <div className="cs-list" ref={listRef}>
-          {loading && <div className="spinner" />}
+          {loading && (
+            <div className="cs-loading">
+              <div className="spinner" />
+            </div>
+          )}
 
           {!loading && comments.length === 0 && (
             <div className="cs-empty">
               <strong>Belum ada komentar</strong>
-              <span>Mulai percakapan.</span>
+              <span>Jadilah yang pertama.</span>
             </div>
           )}
 
           {comments.map((c) => (
             <div className="cs-item" key={c.id}>
-              <img className="avatar" src={avatarFor(c.user)} alt="" />
+              <img className="cs-avatar" src={avatarFor(c.user)} alt="" />
               <div className="cs-body">
-                <div className="cs-line">
+                <div className="cs-top">
                   <span className="cs-name">{c.user?.display_name || c.user?.username || 'Pengguna'}</span>
                   <span className="cs-time">{timeShort(c.created_at)}</span>
+                  {mine(c) && (
+                    <button type="button" className="cs-del" onClick={() => remove(c)}>
+                      Hapus
+                    </button>
+                  )}
                 </div>
-                <div className="cs-text">{c.content}</div>
+                <p className="cs-text">{c.content}</p>
               </div>
-              {mine(c) && (
-                <button type="button" className="cs-del" onClick={() => remove(c)} aria-label="Hapus komentar">
-                  Hapus
-                </button>
-              )}
             </div>
           ))}
         </div>
@@ -140,7 +163,7 @@ export default function CommentsSheet({ postId, onClose, onCountChange }) {
         {error && <div className="cs-error">{error}</div>}
 
         <form className="cs-form" onSubmit={submit}>
-          <img className="avatar avatar-sm" src={avatarFor(user)} alt="" />
+          <img className="cs-form-avatar" src={avatarFor(user)} alt="" />
           <input
             ref={inputRef}
             className="cs-input"
@@ -148,6 +171,7 @@ export default function CommentsSheet({ postId, onClose, onCountChange }) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             maxLength={500}
+            enterKeyHint="send"
           />
           <button type="submit" className="cs-send" disabled={!text.trim() || sending}>
             Kirim
