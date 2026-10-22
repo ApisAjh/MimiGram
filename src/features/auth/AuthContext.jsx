@@ -87,7 +87,7 @@ export function AuthProvider({ children }) {
       if (!initData) {
         setNeedsTelegram(true);
         setError(
-          'initData kosong. Buka Mini App lewat tombol bot (Menu Button / web_app), bukan lewat link biasa.'
+          'Buka Mini App lewat tombol bot (Menu Button / web_app), bukan lewat link biasa.'
         );
         setLoading(false);
         return;
