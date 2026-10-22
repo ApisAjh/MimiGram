@@ -1141,3 +1141,36 @@ img, video {
   flex-shrink: 0;
 }
 .cs-send:disabled { opacity: 0.35; }
+
+/* Onboarding fallback */
+.onboard-page {
+  min-height: 100%;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 24px;
+  background: var(--color-bg);
+  box-sizing: border-box;
+}
+.onboard-card {
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.onboard-logo {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--color-primary);
+  margin-bottom: 20px;
+}
+.onboard-btn {
+  width: 100% !important;
+  padding: 14px 20px !important;
+  font-size: 16px !important;
+  border-radius: 12px !important;
+  display: block !important;
+}
