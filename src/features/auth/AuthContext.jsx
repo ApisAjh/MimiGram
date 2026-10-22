@@ -75,7 +75,6 @@ export function AuthProvider({ children }) {
       const tg = window.Telegram?.WebApp;
       if (!tg) {
         setNeedsTelegram(true);
-        setError(null);
         setLoading(false);
         return;
       }
@@ -87,7 +86,7 @@ export function AuthProvider({ children }) {
       if (!initData) {
         setNeedsTelegram(true);
         setError(
-          'Buka Mini App lewat tombol bot (Menu Button / web_app), bukan lewat link biasa.'
+          'initData kosong. Buka Mini App lewat tombol bot (Menu Button / web_app), bukan lewat link biasa.'
         );
         setLoading(false);
         return;
@@ -103,14 +102,11 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       setNeedsTelegram(false);
       setError(null);
-      // Onboarding only if never completed for this user id
       setNeedsOnboarding(!isOnboarded(data.user.id));
     } catch (err) {
       console.error('Auth error:', err);
       setError(err.message || 'Gagal masuk');
-      if (!isInsideTelegram()) {
-        setNeedsTelegram(true);
-      }
+      if (!isInsideTelegram()) setNeedsTelegram(true);
     } finally {
       setLoading(false);
     }
@@ -148,9 +144,7 @@ export function AuthProvider({ children }) {
       const initData = tg?.initData;
       const tgId = tg?.initDataUnsafe?.user?.id;
 
-      // Always re-auth with Telegram when initData exists → ganti akun otomatis
       if (initData) {
-        // If cookie session is different telegram user, overwrite via authTelegram
         try {
           const data = await api.me();
           if (data?.user && tgId && String(data.user.telegram_id) !== String(tgId)) {
@@ -167,7 +161,6 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      // No initData: try existing cookie (dev / rare)
       try {
         const data = await api.me();
         if (data?.user) {
