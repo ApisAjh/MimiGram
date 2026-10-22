@@ -21,12 +21,33 @@ export default async function handler(req, res) {
       .eq('user_id', user.id)
       .maybeSingle();
 
+    let liked;
     if (existing) {
       await supabase.from('post_likes').delete().eq('id', existing.id);
-      return json(res, 200, { liked: false }, req);
+      liked = false;
+    } else {
+      const { error: insErr } = await supabase
+        .from('post_likes')
+        .insert({ post_id: postId, user_id: user.id });
+      if (insErr) {
+        // unique race: treat as already liked
+        if (insErr.code === '23505') {
+          liked = true;
+        } else {
+          console.error(insErr);
+          return error(res, 500, 'Failed to like', null, req);
+        }
+      } else {
+        liked = true;
+      }
     }
-    await supabase.from('post_likes').insert({ post_id: postId, user_id: user.id });
-    return json(res, 200, { liked: true }, req);
+
+    const { count } = await supabase
+      .from('post_likes')
+      .select('id', { count: 'exact', head: true })
+      .eq('post_id', postId);
+
+    return json(res, 200, { liked, likes_count: count || 0 }, req);
   } catch (err) {
     console.error('like:', err);
     return error(res, 500, 'Internal server error', null, req);
