@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../features/auth/AuthContext';
+import CommentsSheet from '../components/CommentsSheet';
 
 export default function ReelsPage() {
   const { user } = useAuth();
@@ -10,6 +11,7 @@ export default function ReelsPage() {
   const [loading, setLoading] = useState(true);
   const [muted, setMuted] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [commentReel, setCommentReel] = useState(null);
   const containerRef = useRef(null);
   const videoRefs = useRef({});
 
@@ -201,7 +203,7 @@ export default function ReelsPage() {
               </svg>
               <span>{reel.likes_count || ''}</span>
             </button>
-            <button>
+            <button onClick={() => setCommentReel(reel)} aria-label="Komentar">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
               </svg>
@@ -224,6 +226,21 @@ export default function ReelsPage() {
           </div>
         </div>
       ))}
+      {commentReel && (
+        <CommentsSheet
+          postId={commentReel.id}
+          onClose={() => setCommentReel(null)}
+          onCountChange={(d) => {
+            setReels((list) =>
+              list.map((r) =>
+                r.id === commentReel.id
+                  ? { ...r, comments_count: Math.max(0, (r.comments_count || 0) + d) }
+                  : r
+              )
+            );
+          }}
+        />
+      )}
     </div>
   );
 }
