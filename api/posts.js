@@ -41,7 +41,7 @@ async function getPosts(req, res) {
 
     const url = new URL(req.url, `http://${req.headers.host}`);
     const cursor = url.searchParams.get('cursor');
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '15', 10), 50);
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '10', 10), 30);
     const userId = url.searchParams.get('user_id');
     const postType = url.searchParams.get('type'); // post | reel
     const mediaType = url.searchParams.get('media_type'); // image | video
@@ -95,13 +95,13 @@ async function getPosts(req, res) {
     ]);
 
     const likeCounts = {};
-    (likesRes.data || []).forEach((l) => {
+    for (const l of likesRes.data || []) {
       likeCounts[l.post_id] = (likeCounts[l.post_id] || 0) + 1;
-    });
+    }
     const commentCounts = {};
-    (commentsRes.data || []).forEach((c) => {
+    for (const c of commentsRes.data || []) {
       commentCounts[c.post_id] = (commentCounts[c.post_id] || 0) + 1;
-    });
+    }
     const likedSet = new Set((userLikesRes.data || []).map((l) => l.post_id));
     const bookmarkedSet = new Set((userBookmarksRes.data || []).map((b) => b.post_id));
 
@@ -114,6 +114,7 @@ async function getPosts(req, res) {
       })
     );
 
+    res.setHeader('Cache-Control', 'private, max-age=5');
     return json(res, 200, { posts: enriched, nextCursor }, req);
   } catch (err) {
     console.error('getPosts:', err);
