@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../features/auth/AuthContext';
@@ -16,6 +16,48 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const avatarRef = useRef(null);
+
+  const uploadAvatar = async (file) => {
+    if (!file || !user) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Pilih file gambar');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Foto maksimal 5 MB');
+      return;
+    }
+    setAvatarBusy(true);
+    try {
+      const up = await api.getUploadUrl({
+        filename: file.name,
+        contentType: file.type,
+        size: file.size,
+      });
+      const put = await fetch(up.signedUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type,
+          ...(up.token ? { Authorization: `Bearer ${up.token}` } : {}),
+        },
+        body: file,
+      });
+      if (!put.ok) throw new Error('Upload gagal');
+      let publicUrl = up.publicUrl;
+      if (!publicUrl) {
+        publicUrl = `${new URL(up.signedUrl).origin}/storage/v1/object/public/media/${up.path}`;
+      }
+      const data = await api.updateUser(user.id, { avatar_url: publicUrl });
+      setProfile((p) => ({ ...p, ...data.user }));
+      await refreshUser();
+    } catch (err) {
+      alert(err.message || 'Gagal ganti foto');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -145,6 +187,33 @@ export default function ProfilePage() {
 
           {editing ? (
             <div className="profile-edit">
+              <button
+                type="button"
+                className="onboard-avatar-btn"
+                style={{ marginBottom: 12 }}
+                onClick={() => avatarRef.current?.click()}
+                disabled={avatarBusy}
+              >
+                <img
+                  className="avatar avatar-lg"
+                  src={
+                    profile?.avatar_url ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.display_name || 'U')}&background=FF4D6D&color=fff&size=128`
+                  }
+                  alt=""
+                />
+                <span>{avatarBusy ? 'Mengunggah…' : 'Ganti foto profil'}</span>
+              </button>
+              <input
+                ref={avatarRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) uploadAvatar(f);
+                }}
+              />
               <input
                 className="input"
                 value={displayName}

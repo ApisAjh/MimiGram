@@ -4,7 +4,6 @@ import { formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { api } from '../services/api';
 import { useAuth } from '../features/auth/AuthContext';
-import CommentsSheet from '../components/CommentsSheet';
 
 function HeartIcon({ filled }) {
   return (
@@ -35,7 +34,9 @@ function PostCard({ post, onUpdate }) {
   const [likes, setLikes] = useState(post.likes_count);
   const [bookmarked, setBookmarked] = useState(post.bookmarked_by_me);
   const [showComments, setShowComments] = useState(false);
-  const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
 
   const toggleLike = async () => {
     const prev = liked;
@@ -58,6 +59,36 @@ function PostCard({ post, onUpdate }) {
       setBookmarked(res.bookmarked);
     } catch {
       setBookmarked(prev);
+    }
+  };
+
+  const loadComments = async () => {
+    if (showComments) {
+      setShowComments(false);
+      return;
+    }
+    setShowComments(true);
+    setLoadingComments(true);
+    try {
+      const data = await api.getComments(post.id);
+      setComments(data.comments || []);
+    } catch {
+      setComments([]);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const submitComment = async (e) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+    try {
+      const data = await api.addComment(post.id, commentText.trim());
+      setComments((c) => [...c, data.comment]);
+      setCommentText('');
+      onUpdate?.();
+    } catch (err) {
+      alert(err.message || 'Gagal menambah komentar');
     }
   };
 
@@ -101,9 +132,9 @@ function PostCard({ post, onUpdate }) {
           <HeartIcon filled={liked} />
           <span>{likes > 0 ? likes : ''}</span>
         </button>
-        <button onClick={() => setShowComments(true)} aria-label="Komentar">
+        <button onClick={loadComments} aria-label="Komentar">
           <CommentIcon />
-          <span>{commentsCount > 0 ? commentsCount : ''}</span>
+          <span>{post.comments_count > 0 ? post.comments_count : ''}</span>
         </button>
         <button onClick={toggleBookmark} aria-label="Simpan" style={{ marginLeft: 'auto' }}>
           <BookmarkIcon filled={bookmarked} />
@@ -117,21 +148,43 @@ function PostCard({ post, onUpdate }) {
         </div>
       )}
 
-      {commentsCount > 0 && (
-        <button type="button" className="post-view-comments" onClick={() => setShowComments(true)}>
-          Lihat semua {commentsCount} komentar
-        </button>
-      )}
-
       {showComments && (
-        <CommentsSheet
-          postId={post.id}
-          onClose={() => setShowComments(false)}
-          onCountChange={(d) => {
-            setCommentsCount((c) => Math.max(0, c + d));
-            onUpdate?.();
-          }}
-        />
+        <div className="comments-box">
+          {loadingComments && <div className="spinner" />}
+          {!loadingComments && comments.length === 0 && (
+            <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', padding: '4px 0' }}>
+              Belum ada komentar. Jadilah yang pertama.
+            </p>
+          )}
+          {comments.map((c) => (
+            <div key={c.id} className="comment-row">
+              <img
+                className="avatar"
+                src={
+                  c.user?.avatar_url ||
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(c.user?.display_name || 'U')}&background=FF4D6D&color=fff`
+                }
+                alt=""
+              />
+              <div className="comment-body">
+                <span className="name">{c.user?.display_name || 'Pengguna'}</span>
+                {c.content}
+              </div>
+            </div>
+          ))}
+          <form onSubmit={submitComment} className="comment-form">
+            <input
+              className="input"
+              placeholder="Tulis komentar…"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              maxLength={500}
+            />
+            <button type="submit" className="btn btn-primary btn-sm" disabled={!commentText.trim()}>
+              Kirim
+            </button>
+          </form>
+        </div>
       )}
     </article>
   );
