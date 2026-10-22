@@ -77,7 +77,7 @@ export default function CreatePage() {
     }
   };
 
-  const publish = async () => {
+  const publish = async (asDraft = false) => {
     if (!file || uploading) return;
     setUploading(true);
     setProgress(0);
@@ -139,6 +139,7 @@ export default function CreatePage() {
         media_type,
         post_type: postType,
         duration_seconds,
+        status: asDraft ? 'draft' : 'published',
       });
       setProgress(100);
 
@@ -217,8 +218,18 @@ export default function CreatePage() {
           {type === 'photo' ? 'Photo' : type === 'video' ? 'Video' : 'Reel'}
         </h1>
         <button
+          type="button"
+          className="btn btn-outline btn-sm"
+          onClick={() => publish(true)}
+          disabled={!file || uploading}
+          style={{ marginRight: 6 }}
+        >
+          Draft
+        </button>
+        <button
+          type="button"
           className="btn btn-primary btn-sm"
-          onClick={publish}
+          onClick={() => publish(false)}
           disabled={!file || uploading}
         >
           {uploading ? `${progress}%` : 'Bagikan'}

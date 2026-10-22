@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../features/auth/AuthContext';
@@ -7,31 +7,38 @@ export default function ProfilePage() {
   const { user, refreshUser, logout } = useAuth();
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
-  const [tab, setTab] = useState('posts');
+  const [drafts, setDrafts] = useState([]);
+  const [tab, setTab] = useState('posts'); // posts | reels | drafts
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!user) return;
+    try {
+      const [me, postsData, draftsData] = await Promise.all([
+        api.me(),
+        api.getPosts({ user_id: user.id, limit: 50 }),
+        api.getPosts({ user_id: user.id, status: 'draft', limit: 50 }),
+      ]);
+      setProfile(me.user);
+      setDisplayName(me.user.display_name || '');
+      setBio(me.user.bio || '');
+      setPosts(postsData.posts || []);
+      setDrafts(draftsData.posts || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    if (!user) return;
-    (async () => {
-      try {
-        const [me, postsData] = await Promise.all([
-          api.me(),
-          api.getPosts({ user_id: user.id, limit: 50 }),
-        ]);
-        setProfile(me.user);
-        setDisplayName(me.user.display_name || '');
-        setBio(me.user.bio || '');
-        setPosts(postsData.posts || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [user]);
+    load();
+  }, [load]);
 
   const saveProfile = async () => {
     try {
@@ -44,11 +51,46 @@ export default function ProfilePage() {
     }
   };
 
-  // posts tab: all non-reel (photo + video posts); reels tab: reels OR any video
+  const handleDelete = async (post) => {
+    if (!confirm('Hapus postingan ini?')) return;
+    setBusy(true);
+    try {
+      await api.deletePost(post.id);
+      setPosts((list) => list.filter((p) => p.id !== post.id));
+      setDrafts((list) => list.filter((p) => p.id !== post.id));
+      setSelected(null);
+      setProfile((p) =>
+        p ? { ...p, posts_count: Math.max(0, (p.posts_count || 1) - (post.status === 'published' ? 1 : 0)) } : p
+      );
+    } catch (err) {
+      alert(err.message || 'Gagal menghapus');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const publishDraft = async (post) => {
+    setBusy(true);
+    try {
+      const data = await api.updatePost(post.id, { status: 'published' });
+      setDrafts((list) => list.filter((p) => p.id !== post.id));
+      setPosts((list) => [data.post, ...list]);
+      setSelected(null);
+      await refreshUser();
+      await load();
+    } catch (err) {
+      alert(err.message || 'Gagal mempublikasikan');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const filtered =
-    tab === 'posts'
-      ? posts.filter((p) => p.post_type !== 'reel')
-      : posts.filter((p) => p.post_type === 'reel' || p.media_type === 'video');
+    tab === 'drafts'
+      ? drafts
+      : tab === 'posts'
+        ? posts.filter((p) => p.post_type !== 'reel')
+        : posts.filter((p) => p.post_type === 'reel' || p.media_type === 'video');
 
   if (loading) {
     return (
@@ -126,7 +168,11 @@ export default function ProfilePage() {
             <div className="profile-info">
               <h2>{profile?.display_name || 'Pengguna'}</h2>
               {profile?.bio ? <p className="bio">{profile.bio}</p> : null}
-              <button type="button" className="btn btn-outline btn-sm profile-edit-btn" onClick={() => setEditing(true)}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm profile-edit-btn"
+                onClick={() => setEditing(true)}
+              >
                 Edit profil
               </button>
             </div>
@@ -134,34 +180,41 @@ export default function ProfilePage() {
         </section>
 
         <div className="profile-tabs">
-          <button
-            type="button"
-            className={tab === 'posts' ? 'active' : ''}
-            onClick={() => setTab('posts')}
-          >
+          <button type="button" className={tab === 'posts' ? 'active' : ''} onClick={() => setTab('posts')}>
             Postingan
           </button>
-          <button
-            type="button"
-            className={tab === 'reels' ? 'active' : ''}
-            onClick={() => setTab('reels')}
-          >
-            Video / Reels
+          <button type="button" className={tab === 'reels' ? 'active' : ''} onClick={() => setTab('reels')}>
+            Video
+          </button>
+          <button type="button" className={tab === 'drafts' ? 'active' : ''} onClick={() => setTab('drafts')}>
+            Draft{drafts.length ? ` (${drafts.length})` : ''}
           </button>
         </div>
 
         {filtered.length === 0 ? (
           <div className="empty-state">
-            <h3>Belum ada konten</h3>
-            <p>Bagikan {tab === 'posts' ? 'postingan' : 'video'} pertama Anda.</p>
-            <Link to="/create" className="btn btn-primary" style={{ marginTop: 12 }}>
-              Buat
-            </Link>
+            <h3>{tab === 'drafts' ? 'Tidak ada draft' : 'Belum ada konten'}</h3>
+            <p>
+              {tab === 'drafts'
+                ? 'Simpan sebagai draft saat membuat postingan.'
+                : `Bagikan ${tab === 'posts' ? 'postingan' : 'video'} pertama Anda.`}
+            </p>
+            {tab !== 'drafts' && (
+              <Link to="/create" className="btn btn-primary" style={{ marginTop: 12 }}>
+                Buat
+              </Link>
+            )}
           </div>
         ) : (
           <div className="profile-grid">
             {filtered.map((p) => (
-              <div key={p.id} className="grid-cell">
+              <button
+                key={p.id}
+                type="button"
+                className="grid-cell"
+                onClick={() => setSelected(p)}
+                style={{ border: 0, padding: 0, cursor: 'pointer' }}
+              >
                 {p.media_type === 'video' ? (
                   <>
                     <video src={p.media_url} muted playsInline preload="metadata" />
@@ -170,11 +223,54 @@ export default function ProfilePage() {
                 ) : (
                   <img src={p.media_url} alt="" loading="lazy" />
                 )}
-              </div>
+                {p.status === 'draft' && <span className="grid-badge draft-badge">Draft</span>}
+              </button>
             ))}
           </div>
         )}
       </main>
+
+      {selected && (
+        <div className="modal-backdrop" onClick={() => !busy && setSelected(null)} role="presentation">
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()} role="dialog">
+            <div className="modal-header">
+              <strong>{selected.status === 'draft' ? 'Draft' : 'Postingan'}</strong>
+              <button type="button" className="text-btn" onClick={() => setSelected(null)} disabled={busy}>
+                Tutup
+              </button>
+            </div>
+            <div className="modal-media">
+              {selected.media_type === 'video' ? (
+                <video src={selected.media_url} controls playsInline />
+              ) : (
+                <img src={selected.media_url} alt="" />
+              )}
+            </div>
+            {selected.caption ? <p className="modal-caption">{selected.caption}</p> : null}
+            <div className="modal-actions">
+              {selected.status === 'draft' && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={busy}
+                  onClick={() => publishDraft(selected)}
+                >
+                  Publikasikan
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
+                disabled={busy}
+                onClick={() => handleDelete(selected)}
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
