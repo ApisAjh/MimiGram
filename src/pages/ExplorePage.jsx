@@ -9,29 +9,25 @@ export default function ExplorePage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
+  const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      // posts: semua post_type=post (foto+video); reels: video saja dari API type
-      const params = { limit: 30 };
-      if (tab === 'reels') params.type = 'reel';
-      else params.type = 'post';
-      const data = await api.getPosts(params);
-      let list = data.posts || [];
-      // Sertakan video di tab postingan; di tab reels tampilkan video/reel
       if (tab === 'reels') {
-        // fallback: jika belum ada post_type reel, ambil juga dari reels endpoint
-        try {
-          const r = await api.getReels({ limit: 30 });
-          const reels = r.reels || [];
-          const ids = new Set(list.map((x) => x.id));
-          reels.forEach((x) => { if (!ids.has(x.id)) list.push(x); });
-        } catch { /* ignore */ }
+        // Semua video (post video + reel)
+        const r = await api.getReels({ limit: 40 });
+        setPosts(r.reels || []);
+      } else {
+        // Semua postingan published (foto + video biasa)
+        const data = await api.getPosts({ limit: 40 });
+        setPosts(data.posts || []);
       }
-      setPosts(list);
     } catch (err) {
       console.error(err);
+      setError(err.message || 'Gagal memuat');
+      setPosts([]);
     } finally {
       setLoading(false);
     }
@@ -68,12 +64,12 @@ export default function ExplorePage() {
           placeholder="Cari pengguna…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          style={{ flex: 1, marginRight: 8 }}
+          style={{ flex: 1 }}
         />
       </header>
       <main className="app-content">
         {query.trim() ? (
-          <div style={{ padding: 8 }}>
+          <div className="search-results">
             {searching && <div className="spinner" />}
             {!searching && users.length === 0 && (
               <div className="empty-state">
@@ -82,17 +78,7 @@ export default function ExplorePage() {
               </div>
             )}
             {users.map((u) => (
-              <Link
-                key={u.id}
-                to={`/profile/${u.id}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '10px 12px',
-                  borderBottom: '1px solid var(--color-border)',
-                }}
-              >
+              <Link key={u.id} to={`/profile/${u.id}`} className="user-row">
                 <img
                   className="avatar"
                   src={
@@ -102,60 +88,54 @@ export default function ExplorePage() {
                   alt=""
                 />
                 <div>
-                  <div style={{ fontWeight: 600 }}>{u.display_name}</div>
-                  {u.username && (
-                    <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-                      @{u.username}
-                    </div>
-                  )}
+                  <div className="user-row-name">{u.display_name}</div>
+                  {u.username && <div className="user-row-user">@{u.username}</div>}
                 </div>
               </Link>
             ))}
           </div>
         ) : (
           <>
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)' }}>
-              <button
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  fontWeight: 600,
-                  borderBottom: tab === 'posts' ? '2px solid var(--color-primary)' : 'none',
-                  color: tab === 'posts' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                }}
-                onClick={() => setTab('posts')}
-              >
+            <div className="profile-tabs">
+              <button type="button" className={tab === 'posts' ? 'active' : ''} onClick={() => setTab('posts')}>
                 Postingan
               </button>
-              <button
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  fontWeight: 600,
-                  borderBottom: tab === 'reels' ? '2px solid var(--color-primary)' : 'none',
-                  color: tab === 'reels' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                }}
-                onClick={() => setTab('reels')}
-              >
+              <button type="button" className={tab === 'reels' ? 'active' : ''} onClick={() => setTab('reels')}>
                 Reels
               </button>
             </div>
             {loading ? (
               <div className="spinner" />
+            ) : error ? (
+              <div className="empty-state">
+                <h3>Gagal memuat</h3>
+                <p>{error}</p>
+                <button type="button" className="btn btn-primary" onClick={load} style={{ marginTop: 12 }}>
+                  Coba lagi
+                </button>
+              </div>
             ) : posts.length === 0 ? (
               <div className="empty-state">
                 <h3>Belum ada konten</h3>
+                <p>{tab === 'reels' ? 'Belum ada video/reel.' : 'Belum ada postingan.'}</p>
               </div>
             ) : (
               <div className="explore-grid">
                 {posts.map((p) => (
-                  <div key={p.id} style={{ position: 'relative', aspectRatio: 1 }}>
+                  <Link
+                    key={p.id}
+                    to={p.user?.id ? `/profile/${p.user.id}` : '#'}
+                    className="grid-cell"
+                  >
                     {p.media_type === 'video' ? (
-                      <video src={p.media_url} muted playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <>
+                        <video src={p.media_url} muted playsInline preload="metadata" />
+                        <span className="grid-badge">▶</span>
+                      </>
                     ) : (
-                      <img src={p.media_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={p.media_url} alt="" loading="lazy" />
                     )}
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
