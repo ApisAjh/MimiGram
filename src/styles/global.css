@@ -22,8 +22,8 @@
   --color-border: #2A2A32;
   --color-danger: #F87171;
   --color-success: #34D399;
-  --nav-height: 56px;
-  --header-height: 52px;
+  --nav-height: 60px;
+  --header-height: 56px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top: env(safe-area-inset-top, 0px);
   --radius: 12px;
@@ -115,7 +115,7 @@ img, video {
   gap: 2px;
   height: 100%;
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   transition: color 0.15s;
 }
@@ -145,12 +145,14 @@ img, video {
 }
 
 .app-header h1 {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   background: linear-gradient(135deg, var(--color-primary), #C026D3);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  line-height: 1;
 }
 
 /* Buttons */
@@ -289,10 +291,15 @@ img, video {
   background: #000;
   aspect-ratio: 1;
   object-fit: cover;
+  display: block;
 }
 
 .post-media.video {
-  aspect-ratio: 4/5;
+  aspect-ratio: auto;
+  max-height: 70vh;
+  min-height: 220px;
+  object-fit: contain;
+  background: #000;
 }
 
 .post-actions {
@@ -1173,4 +1180,26 @@ img, video {
   font-size: 16px !important;
   border-radius: 12px !important;
   display: block !important;
+}
+
+.home-header {
+  height: 56px;
+  min-height: 56px;
+}
+.brand-title {
+  font-size: 24px !important;
+  font-weight: 800 !important;
+}
+.header-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  color: var(--color-text);
+}
+.post-card-header .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
 }
