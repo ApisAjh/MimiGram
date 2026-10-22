@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
+import PostViewer from '../components/PostViewer';
 
 export default function ExplorePage() {
   const [tab, setTab] = useState('posts');
@@ -10,22 +11,22 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState(null);
+  const [selected, setSelected] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setPosts([]);
     try {
       if (tab === 'reels') {
-        // Semua video (post video + reel)
         const r = await api.getReels({ limit: 40 });
-        setPosts(r.reels || []);
+        setPosts(Array.isArray(r.reels) ? r.reels : []);
       } else {
-        // Semua postingan published (foto + video biasa)
         const data = await api.getPosts({ limit: 40 });
-        setPosts(data.posts || []);
+        setPosts(Array.isArray(data.posts) ? data.posts : []);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Explore load:', err);
       setError(err.message || 'Gagal memuat');
       setPosts([]);
     } finally {
@@ -57,7 +58,7 @@ export default function ExplorePage() {
   }, [query]);
 
   return (
-    <>
+    <div className="explore-page">
       <header className="app-header">
         <input
           className="input"
@@ -65,8 +66,10 @@ export default function ExplorePage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           style={{ flex: 1 }}
+          autoComplete="off"
         />
       </header>
+
       <main className="app-content">
         {query.trim() ? (
           <div className="search-results">
@@ -89,14 +92,14 @@ export default function ExplorePage() {
                 />
                 <div>
                   <div className="user-row-name">{u.display_name}</div>
-                  {u.username && <div className="user-row-user">@{u.username}</div>}
+                  {u.username ? <div className="user-row-user">@{u.username}</div> : null}
                 </div>
               </Link>
             ))}
           </div>
         ) : (
           <>
-            <div className="profile-tabs">
+            <div className="explore-tabs">
               <button type="button" className={tab === 'posts' ? 'active' : ''} onClick={() => setTab('posts')}>
                 Postingan
               </button>
@@ -104,28 +107,38 @@ export default function ExplorePage() {
                 Reels
               </button>
             </div>
+
             {loading ? (
               <div className="spinner" />
             ) : error ? (
               <div className="empty-state">
-                <h3>Gagal memuat</h3>
-                <p>{error}</p>
-                <button type="button" className="btn btn-primary" onClick={load} style={{ marginTop: 12 }}>
+                <h3>Gagal memuat Explore</h3>
+                <p style={{ wordBreak: 'break-word' }}>{error}</p>
+                <button type="button" className="btn btn-primary" style={{ marginTop: 12 }} onClick={load}>
                   Coba lagi
                 </button>
               </div>
             ) : posts.length === 0 ? (
-              <div className="empty-state">
-                <h3>Belum ada konten</h3>
-                <p>{tab === 'reels' ? 'Belum ada video/reel.' : 'Belum ada postingan.'}</p>
+              <div className="empty-state explore-empty">
+                <h3>Explore masih kosong</h3>
+                <p>
+                  {tab === 'reels'
+                    ? 'Belum ada video di komunitas.'
+                    : 'Belum ada postingan publik. Buat dari tab Create.'}
+                </p>
+                <Link to="/create" className="btn btn-primary" style={{ marginTop: 12 }}>
+                  Buat postingan
+                </Link>
               </div>
             ) : (
               <div className="explore-grid">
                 {posts.map((p) => (
-                  <Link
+                  <button
                     key={p.id}
-                    to={p.user?.id ? `/profile/${p.user.id}` : '#'}
+                    type="button"
                     className="grid-cell"
+                    onClick={() => setSelected(p)}
+                    style={{ border: 0, padding: 0, cursor: 'pointer' }}
                   >
                     {p.media_type === 'video' ? (
                       <>
@@ -135,13 +148,15 @@ export default function ExplorePage() {
                     ) : (
                       <img src={p.media_url} alt="" loading="lazy" />
                     )}
-                  </Link>
+                  </button>
                 ))}
               </div>
             )}
           </>
         )}
       </main>
-    </>
+
+      {selected && <PostViewer post={selected} onClose={() => setSelected(null)} />}
+    </div>
   );
 }

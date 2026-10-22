@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../features/auth/AuthContext';
+import PostViewer from '../components/PostViewer';
 
 export default function ProfilePage() {
   const { user, refreshUser, logout } = useAuth();
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [drafts, setDrafts] = useState([]);
-  const [tab, setTab] = useState('posts'); // posts | reels | drafts
+  const [tab, setTab] = useState('posts');
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
@@ -51,16 +52,21 @@ export default function ProfilePage() {
     }
   };
 
-  const handleDelete = async (post) => {
-    if (!confirm('Hapus postingan ini?')) return;
+  const handleDelete = async () => {
+    if (!selected || !confirm('Hapus postingan ini?')) return;
     setBusy(true);
     try {
-      await api.deletePost(post.id);
-      setPosts((list) => list.filter((p) => p.id !== post.id));
-      setDrafts((list) => list.filter((p) => p.id !== post.id));
+      await api.deletePost(selected.id);
+      setPosts((list) => list.filter((p) => p.id !== selected.id));
+      setDrafts((list) => list.filter((p) => p.id !== selected.id));
       setSelected(null);
       setProfile((p) =>
-        p ? { ...p, posts_count: Math.max(0, (p.posts_count || 1) - (post.status === 'published' ? 1 : 0)) } : p
+        p
+          ? {
+              ...p,
+              posts_count: Math.max(0, (p.posts_count || 1) - (selected.status === 'published' ? 1 : 0)),
+            }
+          : p
       );
     } catch (err) {
       alert(err.message || 'Gagal menghapus');
@@ -69,15 +75,14 @@ export default function ProfilePage() {
     }
   };
 
-  const publishDraft = async (post) => {
+  const publishDraft = async () => {
+    if (!selected) return;
     setBusy(true);
     try {
-      const data = await api.updatePost(post.id, { status: 'published' });
-      setDrafts((list) => list.filter((p) => p.id !== post.id));
-      setPosts((list) => [data.post, ...list]);
+      await api.updatePost(selected.id, { status: 'published' });
       setSelected(null);
-      await refreshUser();
       await load();
+      await refreshUser();
     } catch (err) {
       alert(err.message || 'Gagal mempublikasikan');
     } finally {
@@ -231,45 +236,14 @@ export default function ProfilePage() {
       </main>
 
       {selected && (
-        <div className="modal-backdrop" onClick={() => !busy && setSelected(null)} role="presentation">
-          <div className="modal-sheet" onClick={(e) => e.stopPropagation()} role="dialog">
-            <div className="modal-header">
-              <strong>{selected.status === 'draft' ? 'Draft' : 'Postingan'}</strong>
-              <button type="button" className="text-btn" onClick={() => setSelected(null)} disabled={busy}>
-                Tutup
-              </button>
-            </div>
-            <div className="modal-media">
-              {selected.media_type === 'video' ? (
-                <video src={selected.media_url} controls playsInline />
-              ) : (
-                <img src={selected.media_url} alt="" />
-              )}
-            </div>
-            {selected.caption ? <p className="modal-caption">{selected.caption}</p> : null}
-            <div className="modal-actions">
-              {selected.status === 'draft' && (
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={busy}
-                  onClick={() => publishDraft(selected)}
-                >
-                  Publikasikan
-                </button>
-              )}
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
-                disabled={busy}
-                onClick={() => handleDelete(selected)}
-              >
-                Hapus
-              </button>
-            </div>
-          </div>
-        </div>
+        <PostViewer
+          post={selected}
+          onClose={() => setSelected(null)}
+          isOwner
+          busy={busy}
+          onDelete={handleDelete}
+          onPublish={selected.status === 'draft' ? publishDraft : undefined}
+        />
       )}
     </>
   );
