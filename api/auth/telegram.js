@@ -3,6 +3,17 @@ import { getServiceClient } from '../../lib/supabase.js';
 import { createSession, buildSessionCookie } from '../../lib/session.js';
 import { json, error, handleOptions, parseBody, rateLimit } from '../../lib/http.js';
 
+function isTelegramAvatar(url) {
+  if (!url) return false;
+  const u = String(url);
+  return (
+    u.includes('t.me/') ||
+    u.includes('telegram.org') ||
+    u.includes('cdn4.telesco.pe') ||
+    u.includes('telegram-cdn')
+  );
+}
+
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return handleOptions(req, res);
   if (req.method !== 'POST') return error(res, 405, 'Method not allowed');
@@ -36,11 +47,24 @@ export default async function handler(req, res) {
 
     let profile;
     if (existing) {
-      const updates = { username: tgUser.username, updated_at: new Date().toISOString() };
-      if (tgUser.avatar_url) updates.avatar_url = tgUser.avatar_url;
+      const updates = {
+        username: tgUser.username,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Avatar: jangan timpa foto yang sudah di-upload user (Supabase Storage)
+      if (!existing.avatar_url) {
+        if (tgUser.avatar_url) updates.avatar_url = tgUser.avatar_url;
+      } else if (isTelegramAvatar(existing.avatar_url) && tgUser.avatar_url) {
+        // masih foto Telegram default → boleh update dari Telegram
+        updates.avatar_url = tgUser.avatar_url;
+      }
+      // else: avatar kustom → biarkan
+
       if (!existing.display_name || existing.display_name === `User ${tgUser.telegram_id}`) {
         updates.display_name = tgUser.display_name;
       }
+
       const { data: updated, error: updateErr } = await supabase
         .from('profiles')
         .update(updates)
