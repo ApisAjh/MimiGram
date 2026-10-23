@@ -49,6 +49,17 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  getChat: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v != null && v !== '') q.set(k, v);
+    });
+    const s = q.toString();
+    return request(`/chat${s ? `?${s}` : ''}`);
+  },
+  sendChat: (body) =>
+    request('/chat', { method: 'POST', body: JSON.stringify(body) }),
+
   authTelegram: (initData) =>
     request('/auth/telegram', { method: 'POST', body: JSON.stringify({ initData }) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
@@ -66,7 +77,7 @@ export const api = {
   toggleLike: (postId) =>
     request('/like', { method: 'POST', body: JSON.stringify({ post_id: postId }) }),
   toggleBookmark: (postId) =>
-    request('/bookmark', { method: 'POST', body: JSON.stringify({ post_id: postId }) }),
+    request('/like', { method: 'POST', body: JSON.stringify({ post_id: postId, kind: 'bookmark' }) }),
 
   getComments: (postId) => request(`/comments?post_id=${encodeURIComponent(postId)}`),
   addComment: (postId, content) =>
