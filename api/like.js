@@ -1,3 +1,7 @@
+/**
+ * POST { post_id, kind?: 'like' | 'bookmark' }
+ * kind default = like
+ */
 import { requireAuth } from '../lib/session.js';
 import { getServiceClient } from '../lib/supabase.js';
 import { json, error, handleOptions, parseBody } from '../lib/http.js';
@@ -11,9 +15,28 @@ export default async function handler(req, res) {
     if (!user) return;
     const body = await parseBody(req);
     const postId = body.post_id;
+    const kind = body.kind === 'bookmark' ? 'bookmark' : 'like';
     if (!postId) return error(res, 400, 'post_id required', null, req);
 
     const supabase = getServiceClient();
+
+    if (kind === 'bookmark') {
+      const { data: existing } = await supabase
+        .from('bookmarks')
+        .select('id')
+        .eq('post_id', postId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from('bookmarks').delete().eq('id', existing.id);
+        return json(res, 200, { bookmarked: false }, req);
+      }
+      await supabase.from('bookmarks').insert({ post_id: postId, user_id: user.id });
+      return json(res, 200, { bookmarked: true }, req);
+    }
+
+    // like
     const { data: existing } = await supabase
       .from('post_likes')
       .select('id')
@@ -29,17 +52,11 @@ export default async function handler(req, res) {
       const { error: insErr } = await supabase
         .from('post_likes')
         .insert({ post_id: postId, user_id: user.id });
-      if (insErr) {
-        // unique race: treat as already liked
-        if (insErr.code === '23505') {
-          liked = true;
-        } else {
-          console.error(insErr);
-          return error(res, 500, 'Failed to like', null, req);
-        }
-      } else {
-        liked = true;
+      if (insErr && insErr.code !== '23505') {
+        console.error(insErr);
+        return error(res, 500, 'Failed to like', null, req);
       }
+      liked = true;
     }
 
     const { count } = await supabase
