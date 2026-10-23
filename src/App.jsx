@@ -9,6 +9,7 @@ import ReelsPage from './pages/ReelsPage';
 import CreatePage from './pages/CreatePage';
 import ProfilePage from './pages/ProfilePage';
 import NotificationsPage from './pages/NotificationsPage';
+import ChatPage from './pages/ChatPage';
 import UserProfilePage from './pages/UserProfilePage';
 
 function LoadingScreen() {
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="/explore" element={<ExplorePage />} />
         <Route path="/reels" element={<ReelsPage />} />
         <Route path="/create" element={<CreatePage />} />
+        <Route path="/chat" element={<ChatPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/profile/:id" element={<UserProfilePage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
