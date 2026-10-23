@@ -121,14 +121,24 @@ export default function UserProfilePage() {
           <div className="profile-info">
             <h2>{profile.display_name || 'Pengguna'}</h2>
             {profile.bio ? <p className="bio">{profile.bio}</p> : null}
-            <button
-              type="button"
-              className={`btn btn-sm profile-edit-btn ${profile.is_following ? 'btn-outline' : 'btn-primary'}`}
-              onClick={toggleFollow}
-              disabled={followingBusy}
-            >
-              {followingBusy ? '…' : profile.is_following ? 'Following' : 'Follow'}
-            </button>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <Link
+                to={`/chat?tab=dm&peer=${profile.id}`}
+                className="btn btn-outline btn-sm"
+                style={{ flex: 1 }}
+              >
+                Pesan
+              </Link>
+              <button
+                type="button"
+                className={`btn btn-sm ${profile.is_following ? 'btn-outline' : 'btn-primary'}`}
+                style={{ flex: 1 }}
+                onClick={toggleFollow}
+                disabled={followingBusy}
+              >
+                {followingBusy ? '…' : profile.is_following ? 'Following' : 'Follow'}
+              </button>
+            </div>
           </div>
         </section>
 
