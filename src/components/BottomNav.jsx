@@ -13,10 +13,9 @@ const icons = {
       <path d="M21 21l-4.35-4.35" />
     </svg>
   ),
-  reels: (
+  chat: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="2" y="2" width="20" height="20" rx="4" />
-      <path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none" />
+      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
     </svg>
   ),
   create: (
@@ -37,12 +36,11 @@ export default function BottomNav() {
   const location = useLocation();
   const isReels = location.pathname === '/reels';
 
-  if (isReels) {
-    // Still show nav but semi-transparent
-  }
-
   return (
-    <nav className="bottom-nav" style={isReels ? { background: 'rgba(0,0,0,0.5)', borderTop: 'none' } : undefined}>
+    <nav
+      className="bottom-nav"
+      style={isReels ? { background: 'rgba(0,0,0,0.5)', borderTop: 'none' } : undefined}
+    >
       <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>
         {icons.home}
         <span>Home</span>
@@ -51,9 +49,9 @@ export default function BottomNav() {
         {icons.explore}
         <span>Explore</span>
       </NavLink>
-      <NavLink to="/reels" className={({ isActive }) => (isActive ? 'active' : '')}>
-        {icons.reels}
-        <span>Reels</span>
+      <NavLink to="/chat" className={({ isActive }) => (isActive ? 'active' : '')}>
+        {icons.chat}
+        <span>Chat</span>
       </NavLink>
       <NavLink to="/create" className={({ isActive }) => (isActive ? 'active' : '')}>
         {icons.create}
